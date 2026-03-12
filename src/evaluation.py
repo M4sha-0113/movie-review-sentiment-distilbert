@@ -1,8 +1,8 @@
 from transformers import AutoModelForSequenceClassification, Trainer
-import evaluate
 import numpy as np
 from .utils.data_loader import load_data
 from .utils.model_utils import load_saved_model
+from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 
 def evaluate_model(path_pos, path_neg, text_column="review_content", model_dir="./stanford_dataset_train_results/checkpoint-4221",output_file="test_results.txt"):
     """
@@ -25,14 +25,23 @@ def evaluate_model(path_pos, path_neg, text_column="review_content", model_dir="
     # Load and prepare the data
     tokenized_data = load_data(path_pos, path_neg, type="test", text_column=text_column)
     
-    # Re-load the metric
-    metric = evaluate.load("accuracy")
-    
-    # Define the calculation function
+    # Define metrics calculation
     def compute_metrics(eval_pred):
         logits, labels = eval_pred
         predictions = np.argmax(logits, axis=-1)
-        return metric.compute(predictions=predictions, references=labels)
+
+        precision, recall, f1, _ = precision_recall_fscore_support(
+            labels, predictions, average="binary"
+        )
+        acc = accuracy_score(labels, predictions)
+
+        return {
+            "accuracy": acc,
+            "precision": precision,
+            "recall": recall,
+            "f1": f1
+        }
+
     
     # Initialize a Trainer just for evaluation
     trainer = Trainer(model=model, compute_metrics=compute_metrics)
